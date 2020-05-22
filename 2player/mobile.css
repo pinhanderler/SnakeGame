@@ -1,0 +1,38 @@
+.body{
+	overflow-x:hidden;overscroll-behavior:none;
+}
+
+#game{
+	top:0;position:fixed!important;position:relative;
+}
+
+#welcome{
+	top:0;position:relative;border:10px solid white;width:500px;margin-left:50px;margin-top:50px;padding-left:30px;background-color:black;color:white;
+}
+
+#msgbx{
+	display:none;top:0;position:relative;border:10px solid white;width:500px;margin-left:50px;margin-top:50px;padding-left:30px;background-color:black;color:white;
+}
+
+#leaderboard{
+	font: 50px Arial;left:10px;
+}
+
+#form{
+	
+}
+
+#name{
+	font:50px Arial;
+}
+
+#point{
+	
+}
+
+#submit{
+	font:50px Arial;
+}
+
+#scorem{}
+

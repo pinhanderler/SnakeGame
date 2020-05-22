@@ -1,0 +1,505 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Online Snake Game - Demo</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<meta content="minimum-scale=1.0, width=device-width, maximum-scale=0.6667, user-scalable=no" name="viewport">
+<link id="pagestyle" href="snakestyle.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript">
+var mobile = (/iphone|ipad|ipod|android|blackberry|mini|windows\sce|palm/i.test(navigator.userAgent.toLowerCase()))
+if(mobile){
+	document.getElementById('pagestyle').setAttribute('mobile.css', sheet);
+}else{
+	document.getElementById('afooter').style.display="none";  
+}</script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script type="application/javascript">
+		var jsonObjectArray;
+        const xhr = new XMLHttpRequest();
+		xhr.open('GET', 'snakes.json', true);
+		xhr.responseType = 'json';
+		xhr.send(null);
+		xhr.onload = function(e) {
+			console.log('response', this.response);
+			jsonObjectArray = this.response;
+		};
+ 
+        function compare(a,b) {
+            if (a.name < b.name)
+                return -1;
+            if (a.name > b.name)
+                return 1;
+            return 0;
+        }
+ 
+        function compareAge(a,b) {
+            if (a.age < b.age)
+                return 1;
+            if (a.age > b.age)
+                return -1;
+            return 0;
+        }
+ 
+        function sortJsonObjArray() {
+            var tmpJsonObjectArray = jsonObjectArray;
+            //first sort by name
+            tmpJsonObjectArray.sort(compare);
+            //first sort by age
+            tmpJsonObjectArray.sort(compareAge);
+ 
+            var str = "";
+			document.getElementById("leaderboard").innerHTML = "";
+            for(var i=0; i<tmpJsonObjectArray.length; i++) {
+                // str += tmpJsonObjectArray[i].name + " - " + tmpJsonObjectArray[i].age + "\n";
+				str = tmpJsonObjectArray[i].name + " - " + tmpJsonObjectArray[i].age;
+				var ul = document.getElementById("leaderboard");
+				var li = document.createElement("li");
+				// li.setAttribute('id',str);
+				li.appendChild(document.createTextNode(str));
+				ul.appendChild(li);
+            }
+        }
+    </script>
+</head>
+<body style="overflow-x:hidden;overscroll-behavior:none;" class="body">
+
+<div stlye="position:fixed;"><canvas id="game" width="625" height="625" style="top:0;position:fixed!important;position:relative;"></canvas></div>
+<div id="welcome" onclick="welcome();" style="top:0;position:relative;border:10px solid white;width:500px;margin-left:50px;margin-top:50px;padding-left:30px;background-color:black;color:white;">
+<font size="6"><center><br/>başlamak için tıkla<br/>
+<h2 style="color:yellow;">Sarıları Topla</h2>
+<a style="color:red;">WASD - Player 1</a><br/><br/>
+<a style="color:blue;">Yön Tuşları - Player 2</a><br/><br/>
+<br/><br/></center></font>
+</div>
+<div id="msgbx" style="display:none;top:0;position:relative;border:10px solid white;width:500px;margin-left:50px;margin-top:50px;padding-left:30px;background-color:black;color:white;">
+<center><font size="4"><h1 onclick="game.reset();" style="color:gray;">G A M E . O V E R </h1>
+<a onclick="game.reset();" style="color:yellow;"><u>Click for Restrart!</u></a><br/>
+<hr/><h2 id="h2">NONWINNER YET</h2><h4 id="h4">NONWINNER YET</h4>
+
+</font>
+</center>
+</div>
+<script> 
+	var player1 = "Player 1";
+	var player2 = "Player 2";
+	var plyr1 = true;
+	var hiz = 10;
+	var stopping = false;
+	var kare = 25;
+	var messagex = "";
+	var colorr = "red";
+	var wait = true;
+	var wait2 = true;
+	var konum = document.getElementById('game').width - 50;
+	var konum2p = document.getElementById('game').width - 50;
+	if(window.innerWidth >= window.innerHeight){
+		var kare = Math.floor(Math.sqrt(window.innerHeight - 20));
+	}
+	if(window.innerWidth < window.innerHeight){
+		var kare = Math.floor(Math.sqrt(window.innerWidth));
+	}
+class SnakeGame {
+  constructor() {
+    this.canvas = document.getElementById('game');
+    this.context = this.canvas.getContext('2d');
+    
+    // Basılan tuşları algılıyoruz:
+    document.addEventListener('keydown', this.onKeyPress.bind(this));
+  }
+  init() {
+    // Yeni oyun için ilk değer atamaları:
+    this.positionX = this.positionY = 10;
+    this.position2X = 15;
+	this.position2Y = 10;
+    this.appleX = this.appleY = 5;
+    this.tailSize = 5;
+    this.tailSize2 = 5;
+    this.trail = [];
+    this.trail2 = [];
+    this.gridSize = this.tileCount = kare;
+    this.velocityX = this.velocityY = 0;
+    this.velocity2X = this.velocity2Y = 0;
+    // Oyun döngümüz çalışmaya başlıyor.
+    // Her saniyede 15 kez çalışacak, yani 15 FPS olacak.
+    // Üç boyutlu çok daha büyük oyunlar genelde 60 FPS üzerinde çalışıyor.
+    this.timer = setInterval(this.loop.bind(this), 1000 / hiz);
+    // clearInterval(this.timer2);
+    // this.timer2 = setInterval(this.update2.bind(this), 1000 / 15);
+  }
+  
+  reset() {
+    // Oyun göngüsünü durdur:
+	hiz = 10;
+	messagex = "";
+    clearInterval(this.timer);
+    // clearInterval(this.timer2);
+    // Oyun ile alakalı detayları en baştaki haline geri döndür:
+    this.init();
+	stopping = false;
+	// document.getElementById('msgbx').style.display="none";
+	document.getElementById('msgbx').style.display="none";   
+  }
+
+  // Oyun döngümüz
+  loop() {
+    // Matematiksel hesaplamaları yap:
+    this.update();
+    
+    // Sonrasında ekrana çizimi gerçekleştir
+    this.draw();
+  }
+  update() {
+    if(stopping) return;
+    // Yılanın başını X ve Y koordinat düzleminde gittiği yöne hareket ettir
+    this.positionX += this.velocityX;
+    this.positionY += this.velocityY;
+
+	if(this.trail2.length == 15 && konum2p == konum){
+		konum2p -= 30;
+	}
+    // Yılan sağ, sol, üst ya da alt kenarlara değdi mi?
+    // Değdiyse ekranın diğer tarafından devam ettir
+    if (this.positionX < 0) {
+      this.positionX = this.tileCount - 1;
+    } else if (this.positionY < 0) {
+      this.positionY = this.tileCount - 1;
+    } else if (this.positionX > this.tileCount - 1) {
+      this.positionX = 0;
+    } else if (this.positionY > this.tileCount - 1) {
+      this.positionY = 0;
+    }
+	this.position2X += this.velocity2X;
+    this.position2Y += this.velocity2Y;
+	
+	if (this.position2X < 0) {
+      this.position2X = this.tileCount - 1;
+    } else if (this.position2Y < 0) {
+      this.position2Y = this.tileCount - 1;
+    } else if (this.position2X > this.tileCount - 1) {
+      this.position2X = 0;
+    } else if (this.position2Y > this.tileCount - 1) {
+      this.position2Y = 0;
+    }
+
+    // Yılan kendi üstüne bastı mı?
+    this.trail.forEach(t => {
+      if (this.trail.length > 5 && this.positionX === t.positionX && this.positionY === t.positionY) {
+		gameover("p1");
+        // Bastıysa game over olduk, oyunu resetle:
+			// document.getElementById('msgbx').style.display="block";                           GAME OVER mesajı gelsin istiyorum!
+			// document.getElementById('msgbx').style.opacity = "1"; // Opaklık efekti (açılış)
+			// clearInterval(this.timer);
+			// break            OYUNU DURDURMAK İÇİN
+			// this.reset();
+	  }
+    });
+	this.trail2.forEach(t2 => {
+      if (this.trail2.length > 5 && this.position2X === t2.positionX && this.position2Y === t2.positionY) {
+		gameover("p2");
+	  }
+    });
+	this.trail2.forEach(t2 => {
+		if (this.trail.length > 5 && this.positionX === t2.positionX && this.positionY === t2.positionY) {
+		// *** YILANLAR ÇARPIŞTI ***
+	  }
+	});
+
+    // Yılanın başını yılanın herbir karesini hafızada tuttuğumuz diziye koy
+    this.trail.push({positionX: this.positionX, positionY: this.positionY});
+    this.trail2.push({positionX: this.position2X, positionY: this.position2Y});
+
+    // Yılanın başını hareket ettirdik, şimdi kuyruktan kırpmamız gerekiyor
+    while (this.trail.length > this.tailSize) {
+      this.trail.shift();
+    }
+	while (this.trail2.length > this.tailSize2) {
+      this.trail2.shift();
+    }
+
+    // Yılan elma yedi mi?
+    if (this.appleX === this.positionX && this.appleY === this.positionY) {
+	  this.tailSize++;
+      eatapple();
+    }
+	
+	if (this.appleX === this.position2X && this.appleY === this.position2Y) {
+	  this.tailSize2++;
+      eatapple();
+    }
+  }
+
+  // Ekrana çizim gerçekleştiriyor:
+  draw() {
+    // İlk olarak siyah arkaplanı çiziyoruz
+    this.context.fillStyle = 'black';
+    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+     // Skoru ekranın sol üst köşesine yazdıralım
+    this.context.fillStyle = 'red';
+    this.context.font = '50px Arial';
+    this.context.fillText(this.tailSize - 5, 20, 50);
+	
+	 // Skoru ekranın sol üst köşesine yazdıralım
+    this.context.fillStyle = 'blue';
+    this.context.font = '50px Arial';
+    this.context.fillText(this.tailSize2 - 5, konum2p, 50);
+	
+	// Çözünürlüğü ekranın orta üste yazdıralım
+	var konum2 = document.getElementById('game').width / 2 - 50;
+    this.context.fillStyle = 'gray';
+    this.context.font = '25px Arial';
+    this.context.fillText(kare.toString() + " x " + kare.toString(), konum2, 50);
+	
+	// Durumun ekranın sol üst köşesine yazdıralım
+    this.context.fillStyle = '#8b0000';
+    this.context.font = '30px Arial';
+    this.context.fillText(player1, 20, 90);
+	
+	// Durumun ekranın sol üst köşesine yazdıralım
+    this.context.fillStyle = '#00008b';
+    this.context.font = '30px Arial';
+    this.context.fillText(player2, (konum - 90), 90);
+
+    // Yılanın herbir karesini sırayla ekrana çiziyoruz
+    this.context.fillStyle = colorr;
+    this.trail.forEach(t => {
+      this.context.fillRect(t.positionX * this.gridSize, t.positionY * this.gridSize, this.gridSize - 5, this.gridSize - 5);
+    });
+
+	// Player 2
+    this.context.fillStyle = 'blue';
+    this.trail2.forEach(t2 => {
+    this.context.fillRect(t2.positionX * this.gridSize, t2.positionY * this.gridSize, this.gridSize - 5, this.gridSize - 5);
+  });
+
+    // Son olarak elmayı ekrana çizdirelim:
+    this.context.fillStyle = 'yellow';
+    this.context.fillRect(this.appleX * this.gridSize, this.appleY * this.gridSize, this.gridSize - 5, this.gridSize - 5);
+}
+
+  // Kullanıcı websayfasındayken bir tuşa bastığında çağrılıyor:
+  onKeyPress(e) {
+    // Kullanıcı sol oka bastı, yılan sağa gitmiyorsa yılanı sola döndür
+    if (e.keyCode === 37 && this.velocity2X !== 1 && wait2 == true) {
+      this.velocity2X = -1;
+      this.velocity2Y = 0;
+	  window.scrollTo(0, 0);
+	  wait2 = false;
+	  setTimeout(vait2,50);
+    }
+    
+    // Kullanıcı yukarı oka bastı, yılan aşağı gitmiyorsa yılanı yukarı döndür
+    else if (e.keyCode === 38 && this.velocity2Y !== 1 && wait2 == true) {
+      this.velocity2X = 0;
+      this.velocity2Y = -1;
+	  window.scrollTo(0, 0);
+	  wait2 = false;
+	  setTimeout(vait2,50);
+    }
+    
+    // Kullanıcı sağ oka bastı, yılan sola gitmiyorsa yılanı sağa döndür
+    else if (e.keyCode === 39 && this.velocity2X !== -1 && wait2 == true) {
+      this.velocity2X = 1;
+      this.velocity2Y = 0;
+	  window.scrollTo(0, 0);
+	  wait2 = false;
+	  setTimeout(vait2,50);
+	  console.log("hmm");
+    }
+    
+    // Kullanıcı aşağı oka bastı, yılan yukarı gitmiyorsa yılanı aşağı döndür
+    if (e.keyCode === 40 && this.velocity2Y !== -1 && wait2 == true) {
+      this.velocity2X = 0;
+      this.velocity2Y = 1;
+	  window.scrollTo(0, 0);
+	  wait2 = false;
+	  setTimeout(vait2,50);
+    }
+	
+	if (e.keyCode === 65 && this.velocityX !== 1 && wait == true) {
+      this.velocityX = -1;
+      this.velocityY = 0;
+	  window.scrollTo(0, 0);
+	  wait = false;
+	  setTimeout(vait,50);
+    }
+    
+    // Kullanıcı yukarı oka bastı, yılan aşağı gitmiyorsa yılanı yukarı döndür
+    else if (e.keyCode === 87 && this.velocityY !== 1 && wait == true) {
+      this.velocityX = 0;
+      this.velocityY = -1;
+	  window.scrollTo(0, 0);
+	  wait = false;
+	  setTimeout(vait,50);
+    }
+    
+    // Kullanıcı sağ oka bastı, yılan sola gitmiyorsa yılanı sağa döndür
+    else if (e.keyCode === 68 && this.velocityX !== -1 && wait == true) {
+      this.velocityX = 1;
+      this.velocityY = 0;
+	  window.scrollTo(0, 0);
+	  wait = false;
+	  setTimeout(vait,50);
+    }
+    
+    // Kullanıcı aşağı oka bastı, yılan yukarı gitmiyorsa yılanı aşağı döndür
+    if (e.keyCode === 83 && this.velocityY !== -1 && wait == true) {
+      this.velocityX = 0;
+      this.velocityY = 1;
+	  window.scrollTo(0, 0);
+	  wait = false;
+	  setTimeout(vait,50);
+    }
+  }
+}
+// Yeni oyun oluştur:
+const game = new SnakeGame();
+// Sayfa yüklendiğinde oyunu oynanabilir hale getir:  
+// $("#msgbx").on("click",function(){
+// $("#msgbx").animate({opacity: 'hide'},1000); }
+function swipe() {
+	var pozx;
+	var pozx1;
+	var pozy;
+	var pozy1;
+	var kontrolx;
+	var kontroly;
+	var plyr;
+	var mydiv=document.querySelector("#touchsurface");
+	window.addEventListener("touchstart", function(e) {
+		e=e || windows.evet;
+		pozx= e.changedTouches[0].pageX;
+		pozy= e.changedTouches[0].pageY;
+	}) // window.innerHeight
+	window.addEventListener("touchend", function(e) {
+		e=e || windows.evet;
+		pozx1= e.changedTouches[0].pageX;
+		pozy1= e.changedTouches[0].pageY;
+		kontrolx = pozx1-pozx;
+		kontroly = pozy1-pozy;
+		if(pozx<(window.innerHeight/2)){
+			if (Math.abs(kontrolx) > Math.abs(kontroly)){
+				if (kontrolx>10  && game.velocityX !== -1) { //39
+					console.log("right swipe1");
+					game.velocityX = 1;
+					game.velocityY = 0;
+				}
+				if (kontrolx<-10  && game.velocityX !== 1) { //37
+					console.log("left swipe1");
+					game.velocityX = -1;
+					game.velocityY = 0;
+				}
+			} else {
+				if (kontroly>10 && game.velocityY !== -1) { //40
+					console.log("down swipe1");
+					game.velocityX = 0;
+					game.velocityY = 1;
+				}
+				if (kontroly<-10 && game.velocityY !== 1) { //38
+					console.log("up swipe1");
+					game.velocityX = 0;
+					game.velocityY = -1;
+				}
+			}
+		}else{
+			if (Math.abs(kontrolx) > Math.abs(kontroly)){
+				if (kontrolx>10  && game.velocity2X !== -1) { //39
+					console.log("right swipe2");
+					game.velocity2X = 1;
+					game.velocity2Y = 0;
+				}
+				if (kontrolx<-10  && game.velocity2X !== 1) { //37
+					console.log("left swipe2");
+					game.velocity2X = -1;
+					game.velocity2Y = 0;
+				}
+			} else {
+				if (kontroly>10 && game.velocity2Y !== -1) { //40
+					console.log("down swipe2");
+					game.velocity2X = 0;
+					game.velocity2Y = 1;
+				}
+				if (kontroly<-10 && game.velocity2Y !== 1) { //38
+					console.log("up swipe2");
+					game.velocity2X = 0;
+					game.velocity2Y = -1;
+				}
+			}
+		}
+	})
+}
+function eatapple(){
+	  game.appleX = Math.floor(Math.random() * game.tileCount);
+      game.appleY = Math.floor(Math.random() * game.tileCount);
+      if(hiz < 20 ){
+		hiz = hiz + 0.5;
+	  }else {
+	    if(hiz < 35){
+			hiz = hiz + 0.25;
+		}
+	  }
+	  console.log(hiz);
+      clearInterval(game.timer);
+      game.timer = setInterval(game.loop.bind(game), 1000 / hiz);
+  }
+  
+function maxWindow(karem) {
+        window.moveTo(0, 0);
+		var wx = karem * karem;
+		document.getElementById('game').width = wx;
+		document.getElementById('game').height = wx;
+		var wx2 = wx - 150;
+		document.getElementById('msgbx').style.width = wx2 + "px";
+		document.getElementById('welcome').style.width = wx2 + "px";
+		console.log(wx);
+    }
+function start(){
+    game.init();
+	maxWindow(kare);
+	swipe();
+}
+function stop(){
+    stopping = true;
+}
+function continuex(){
+    stopping = false;
+}
+function vait2(){
+	wait2 = true;
+}
+function vait(){
+	wait = true;
+}
+function welcome(){
+	document.getElementById('welcome').style.display="none";
+}
+function gameover(yanan){
+	// document.getElementById('welcome').style.display="none";
+	document.getElementById('msgbx').style.display="block";
+	// sortJsonObjArray();
+	var score = game.trail.length - 5;
+	var score2 = game.trail2.length - 5;
+	stopping = true;
+	window.scrollTo(0, 0);
+	document.getElementById('h4').innerHTML = "Player 1 : " + score.toString() + " - " + score2.toString() + " : Player 2";
+	if(yanan == "p1"){
+	document.getElementById('h2').innerHTML = "Winner is Player 2";
+	}else{
+	document.getElementById('h2').innerHTML = "Winner is Player 1";
+	}
+}
+window.onload = start();
+</script>
+
+<!--
+<div id="restart" onclick="game.reset();" style="cursor:pointer;position:relative;top:00px;border:20px solid;width:500px;margin-left:50px;margin-top:50px;padding-left:30px;"> R E S T A R T </div>
+<div id="stop" onclick="stop();" style="cursor:pointer;position:relative;top:00px;border:20px solid;width:500px;margin-left:50px;margin-top:50px;padding-left:30px;"> S T O P </div>
+<div id="continue" onclick="continuex();" style="cursor:pointer;position:relative;top:00px;border:20px solid;width:500px;margin-left:50px;margin-top:50px;padding-left:30px;"> C O N T İ N U E </div>
+-->
+<div id="div1" style="display:none;"></div>
+<div id="div2" style="display:none;"></div>
+<div id="div3" style="display:none;"></div>
+<div id="div4" style="display:none;"></div>
+</body>
+</html>
